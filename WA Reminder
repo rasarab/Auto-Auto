@@ -1,0 +1,74 @@
+	function sendReminder() {
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+
+  var spreadSheet = SpreadsheetApp.openByUrl(SpreadsheetApp.getActiveSpreadsheet().getUrl());
+  var sheet = spreadSheet.getSheets()[0];
+  var rangeValues = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+
+  for (var i in rangeValues) {
+    var employeeName = sheet.getRange(2 + Number(i), 1).getValue()
+    var activity = sheet.getRange(2 + Number(i), 2).getValue()
+    var phoneNumber = sheet.getRange(2 + Number(i), 4).getValue()
+    var place = sheet.getRange(2 + Number(i), 5).getValue()
+
+    var todayDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd MMMM yyyy"); // 21 April 2023
+    
+    var trainingDate = new Date(sheet.getRange(2 + Number(i), 3).getValue());
+    var formattedTrainingDate = Utilities.formatDate(trainingDate, Session.getScriptTimeZone(), "dd MMMM yyyy"); // 23 April 2023
+    
+    var reminderDate = new Date(trainingDate - (1 * 24 * 60 * 60 * 1000)); // Change day reminder
+    var formattedReminderDate = Utilities.formatDate(reminderDate, Session.getScriptTimeZone(), "dd MMMM yyyy"); // 21 April 2023
+
+    const requestBody = {
+      'api_key': 'YOUR-API-KEY',
+      'sender': '6289XXXXXXXXXX',
+      'number': phoneNumber,
+      'message':
+        '*_This is an auto generated message, please do not reply._*\r\n\r\n' +
+        'Dear ' + employeeName + ',\r\n' +
+        'Ini adalah pengingat tentang pelatihan Anda pada :\r\n\r\n' +
+        'Tanggal : ' + formattedTrainingDate + '\r\n' +
+        'Subject : ' + activity + '\r\n' +
+        'Lokasi : ' + place + '\r\n\r\n' +
+        'Mohon untuk datang tepat waktu dan berpakaian dengan Sopan.'
+    };
+
+    var bodyMessage = JSON.stringify(requestBody);
+    var result = sheet.getRange(2 + Number(i), 6);
+    var remark = sheet.getRange(2 + Number(i), 7);
+
+    try {
+      if (compareDates(new Date(todayDate), new Date(formattedReminderDate)) == 0 && (result.isBlank() || result.getValue() === 'FAILED')) {
+        UrlFetchApp.fetch('https://app.whatsnotify.net/send-message',
+          {
+            method: 'POST',
+            payload: bodyMessage,
+            headers: headers,
+            contentType: "application/json"
+          });
+        result.setValue('SUCCESSFUL').setBackground('#b7e1cd');
+        remark.setValue('Sent on ' + new Date());
+      }
+    } catch (err) {
+      result.setValue('FAILED').setBackground('#ea4335');
+      remark.setValue(String(err).replace('\n', ''));
+    }
+  }
+
+}
+
+
+// Helper Function
+function compareDates(date1, date2) {
+  if (date1.getTime() === date2.getTime()) {
+    return 0; // dates are equal
+  } else if (date1.getTime() < date2.getTime()) {
+    return -1; // date1 is before date2
+  } else {
+    return 1; // date1 is after date2
+  }
+}
